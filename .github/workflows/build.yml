@@ -1,0 +1,35 @@
+name: Build TWRP
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 python3-pip
+
+      - name: Sync TWRP
+        run: |
+          mkdir workspace
+          cd workspace
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-14.0
+          repo sync -j$(nproc)
+
+      - name: Prepare Device Tree
+        run: |
+          mkdir -p workspace/device/realme/ussi_arm64
+          cp -r ./* workspace/device/realme/ussi_arm64/
+          rm -rf workspace/device/realme/ussi_arm64/.github
+
+      - name: Build
+        run: |
+          cd workspace
+          source build/envsetup.sh
+          lunch omni_ussi_arm64-eng
+          mka recoveryimage

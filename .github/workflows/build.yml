@@ -28,9 +28,17 @@ jobs:
           rm -rf workspace/device/realme/ussi_arm64/.github
 
       - name: Build Recovery
+        shell: bash
         run: |
           cd workspace
+          # Build environment setup karna
           source build/envsetup.sh
+          # Check karna ki environment load hua ya nahi
+          if ! type lunch > /dev/null; then
+            echo "Error: envsetup.sh fail ho gaya"
+            exit 1
+          fi
+          # Lunch command chalana
           lunch omni_ussi_arm64-eng
-          # mka ki jagah direct 'make' use kar rahe hain
+          # mka ki jagah 'make' ka use karna (zyada stable hai)
           make -j$(nproc) recoveryimage

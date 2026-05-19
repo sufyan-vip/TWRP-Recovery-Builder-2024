@@ -110,7 +110,7 @@ jobs:
       uses: haya14busa/action-cond@v1
       id: manifest
       with:
-        cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-11' || github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1'  || github.event.inputs.MANIFEST_BRANCH == 'twrp-14.1' }}
+        cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-14.1' || github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1' || github.event.inputs.MANIFEST_BRANCH == 'twrp-11' }}
         if_true: https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git
         if_false: https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git
 
@@ -148,7 +148,7 @@ jobs:
       continue-on-error: true
       
     - name: Install Python 2
-      if: github.event.inputs.MANIFEST_BRANCH != 'twrp-11' && github.event.inputs.MANIFEST_BRANCH != 'twrp-12.1'  && github.event.inputs.MANIFEST_BRANCH != 'twrp-14.1'
+      if: github.event.inputs.MANIFEST_BRANCH != 'twrp-11' && github.event.inputs.MANIFEST_BRANCH != 'twrp-12.1' && github.event.inputs.MANIFEST_BRANCH != 'twrp-14.1'
       run: |
         sudo apt -y install python2
         cd /usr/bin
@@ -160,33 +160,29 @@ jobs:
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         
-        # 1. Multi-line Omni cleanup
-        target_mk="${{ github.event.inputs.DEVICE_PATH }}/omni_${{ github.event.inputs.DEVICE_NAME }}.mk"
-        if [ -f "$target_mk" ]; then
-            sed -i 's|$(call inherit-product, vendor/omni/config/common.mk)|# Line bypassed|g' "$target_mk"
-            sed -i 's|$(call inherit-product, vendor/omni/config/gsm.mk)|# Line bypassed|g' "$target_mk"
-            sed -i '/vendor\/omni/d' "$target_mk"
-        fi
-
-        # 2. Obsolete Boot Control HAL Auto-Fix (Mazaq khatam, direct line remove)
-        device_mk="${{ github.event.inputs.DEVICE_PATH }}/device.mk"
-        if [ -f "$device_mk" ]; then
-            echo "Removing obsolete PRODUCT_STATIC_BOOT_CONTROL_HAL from device.mk..."
-            sed -i '/PRODUCT_STATIC_BOOT_CONTROL_HAL/d' "$device_mk"
-        fi
-
-        # 3. TWRP Build Flag addition to ensure correct device compilation
-        board_cfg="${{ github.event.inputs.DEVICE_PATH }}/BoardConfig.mk"
-        if [ -f "$board_cfg" ]; then
-            echo "export TW_INCLUDE_NTFS_3G := true" >> "$board_cfg"
-        fi
-
         echo "========================================="
-        echo "🔄 EXECUTING COMPILATION..."
+        echo "🧹 AGGRESSIVE DEVICE TREE CLEANUP STARTING..."
         echo "========================================="
         
-        # Proper AOSP generic lunch fallback standard setup
-        lunch ${{ env.DEVICE_MAKEFILE }}-eng || lunch omni_${{ github.event.inputs.DEVICE_NAME }}-ap2a-eng || lunch omni_${{ github.event.inputs.DEVICE_NAME }}-eng
+        TREE_DIR="${{ github.event.inputs.DEVICE_PATH }}"
+        
+        # 1. Omni ROM conflicts ko saari files se nikalna
+        find "$TREE_DIR" -name "*.mk" -type f -exec sed -i 's|$(call inherit-product, vendor/omni/config/common.mk)|# Line bypassed|g' {} +
+        find "$TREE_DIR" -name "*.mk" -type f -exec sed -i 's|$(call inherit-product, vendor/omni/config/gsm.mk)|# Line bypassed|g' {} +
+        find "$TREE_DIR" -name "*.mk" -type f -exec sed -i '/vendor\/omni/d' {} +
+
+        # 2. Obsolete Boot Control HAL ko saari files se nikalna
+        find "$TREE_DIR" -name "*.mk" -type f -exec sed -i '/PRODUCT_STATIC_BOOT_CONTROL_HAL/d' {} +
+
+        # 3. Brightness Flags Conflict ko saari files se nikalna (Yahi asal masla tha)
+        find "$TREE_DIR" -name "*.mk" -type f -exec sed -i '/TW_BRIGHTNESS_PATH/d' {} +
+        find "$TREE_DIR" -name "*.mk" -type f -exec sed -i '/TW_MAX_BRIGHTNESS/d' {} +
+        
+        echo "========================================="
+        echo "🔄 EXECUTING VENDOR_BOOT COMPILATION..."
+        echo "========================================="
+        
+        lunch omni_${{ github.event.inputs.DEVICE_NAME }}-ap2a-eng || lunch ${{ env.DEVICE_MAKEFILE }}-eng || lunch omni_${{ github.event.inputs.DEVICE_NAME }}-eng
         make clean
         make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
         echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"

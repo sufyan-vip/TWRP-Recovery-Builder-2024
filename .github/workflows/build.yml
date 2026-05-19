@@ -27,9 +27,10 @@ jobs:
           cp -r ./* workspace/device/realme/ussi_arm64/
           rm -rf workspace/device/realme/ussi_arm64/.github
 
-      - name: Build
+      - name: Build Recovery
         run: |
           cd workspace
           source build/envsetup.sh
           lunch omni_ussi_arm64-eng
-          mka recoveryimage
+          # mka ki jagah direct 'make' use kar rahe hain
+          make -j$(nproc) recoveryimage

@@ -160,8 +160,25 @@ jobs:
         cd workspace
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        lunch omni_ussi_arm64-ap2a-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
-      
+        
+        # Twrpdtgen files mein se omni specific line ko comment karne ka auto fix
+        if [ -f device/realme/ussi_arm64/omni_ussi_arm64.mk ]; then
+            sed -i 's|$(call inherit-product, vendor/omni/config/common.mk)|# Line bypassed for TWRP AOSP Build|g' device/realme/ussi_arm64/omni_ussi_arm64.mk
+        fi
+
+        # Build start aur proper debugging handler
+        echo "========================================="
+        echo "🔄 STARTING REALME NOTE 50 TWRP BUILD..."
+        echo "========================================="
+        
+        if ! lunch omni_ussi_arm64-ap2a-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all); then
+           echo "========================================="
+           echo "❌ BUILD FAILED! CRITICAL COMPILATION ERROR DETECTED"
+           echo "========================================="
+           echo "Checking tail logs for exact breakdown:"
+           exit 1
+        fi
+        echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
     - name: Set Build Date # Output will be use in Release
       run: |
         echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
